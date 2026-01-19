@@ -25,39 +25,15 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
-    
+
     final messages = await CsvService.loadMessages();
     final dayIndex = await NotificationService.getCurrentDayIndex();
-    
+
     setState(() {
       _messages = messages;
       _currentDayIndex = dayIndex % (messages.isEmpty ? 1 : messages.length);
       _isLoading = false;
     });
-  }
-
-  Future<void> _testNotification() async {
-    if (_messages.isEmpty) return;
-    
-    // Testiramo native notifikaciju
-    await NotificationService.testNativeNotification();
-    
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Native testna notifikacija poslata!')),
-      );
-    }
-  }
-
-  Future<void> _resetNotifications() async {
-    await NotificationService.resetNotifications();
-    await _loadData();
-    
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Notifikacije resetovane!')),
-      );
-    }
   }
 
   @override
@@ -66,11 +42,6 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: const Text('Lijepa Allahova Imena'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_active),
-            onPressed: _testNotification,
-            tooltip: 'Testiraj Notifikaciju',
-          ),
           IconButton(
             icon: const Icon(Icons.settings),
             onPressed: () {
@@ -130,9 +101,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildCurrentDayCard() {
     if (_messages.isEmpty) return const SizedBox.shrink();
-    
+
     final currentMessage = _messages[_currentDayIndex];
-    
+
     return Container(
       margin: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -191,7 +162,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => MessageDetailScreen(message: currentMessage),
+                      builder: (context) =>
+                          MessageDetailScreen(message: currentMessage),
                     ),
                   );
                 },
@@ -204,7 +176,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     children: [
                       Row(
                         children: [
-                          const Icon(Icons.calendar_today, color: Colors.white70, size: 18),
+                          const Icon(Icons.calendar_today,
+                              color: Colors.white70, size: 18),
                           const SizedBox(width: 8),
                           Text(
                             'Dan ${_currentDayIndex + 1} od ${_messages.length}',
@@ -228,7 +201,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       const SizedBox(height: 8),
                       Row(
                         children: [
-                          const Icon(Icons.book, color: Colors.white70, size: 16),
+                          const Icon(Icons.book,
+                              color: Colors.white70, size: 16),
                           const SizedBox(width: 6),
                           Text(
                             'Sura ${currentMessage.sura} - Ajet ${currentMessage.ajet}',
@@ -263,7 +237,7 @@ class _HomeScreenState extends State<HomeScreen> {
       itemBuilder: (context, index) {
         final message = _messages[index];
         final isCurrentDay = index == _currentDayIndex;
-        
+
         return Card(
           elevation: isCurrentDay ? 8 : 2,
           shape: RoundedRectangleBorder(
@@ -319,7 +293,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                 child: Icon(
                                   Icons.star_border,
                                   size: 50,
-                                  color: isCurrentDay ? Colors.white : Colors.grey.shade700,
+                                  color: isCurrentDay
+                                      ? Colors.white
+                                      : Colors.grey.shade700,
                                 ),
                               ),
                             );
@@ -328,28 +304,31 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                   ),
-                  
+
                   const SizedBox(height: 8),
-                  
+
                   // Ime
                   Text(
                     message.message,
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 12,
-                      fontWeight: isCurrentDay ? FontWeight.bold : FontWeight.w600,
-                      color: isCurrentDay ? Colors.teal.shade900 : Colors.black87,
+                      fontWeight:
+                          isCurrentDay ? FontWeight.bold : FontWeight.w600,
+                      color:
+                          isCurrentDay ? Colors.teal.shade900 : Colors.black87,
                       height: 1.2,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  
+
                   const SizedBox(height: 8),
-                  
+
                   // Sura i ajet
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: isCurrentDay
                           ? Colors.teal.shade700
@@ -360,17 +339,19 @@ class _HomeScreenState extends State<HomeScreen> {
                       'Sura ${message.sura}:${message.ajet}',
                       style: TextStyle(
                         fontSize: 11,
-                        color: isCurrentDay ? Colors.white : Colors.grey.shade600,
+                        color:
+                            isCurrentDay ? Colors.white : Colors.grey.shade600,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
                   ),
-                  
+
                   if (isCurrentDay)
                     Padding(
                       padding: const EdgeInsets.only(top: 8),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
                           color: Colors.amber.shade100,
                           borderRadius: BorderRadius.circular(8),
@@ -378,7 +359,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.star, size: 12, color: Colors.amber.shade700),
+                            Icon(Icons.star,
+                                size: 12, color: Colors.amber.shade700),
                             const SizedBox(width: 4),
                             Text(
                               'Današnje',

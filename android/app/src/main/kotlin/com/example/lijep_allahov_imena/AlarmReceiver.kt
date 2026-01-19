@@ -43,7 +43,7 @@ class AlarmReceiver : BroadcastReceiver() {
             val now = java.util.Date()
             val diff = now.time - startDate.time
             val days = (diff / (1000 * 60 * 60 * 24)).toInt()
-            days % 30 //循環 kroz 30 poruka
+            days // Broj dana od početka
         } else {
             0
         }

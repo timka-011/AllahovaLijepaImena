@@ -28,10 +28,6 @@ class MainActivity : FlutterActivity() {
                     cancelAlarm()
                     result.success(true)
                 }
-                "testNotification" -> {
-                    testNotification()
-                    result.success(true)
-                }
                 else -> {
                     result.notImplemented()
                 }
@@ -119,12 +115,6 @@ class MainActivity : FlutterActivity() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         alarmManager.cancel(pendingIntent)
-    }
-
-    private fun testNotification() {
-        android.util.Log.d("MainActivity", "Test notifikacije pozvan")
-        val intent = Intent(this, AlarmReceiver::class.java)
-        sendBroadcast(intent)
     }
 }
 
