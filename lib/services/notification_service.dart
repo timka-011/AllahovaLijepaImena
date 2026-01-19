@@ -22,6 +22,8 @@ class NotificationService {
     
     // Inicijalizuj timezone
     tz.initializeTimeZones();
+    // Postavi lokaciju na UTC+1 (Bosna i Hercegovina)
+    tz.setLocalLocation(tz.getLocation('Europe/Sarajevo'));
     
     // Android postavke
     const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -164,34 +166,67 @@ class NotificationService {
       presentSound: true,
     );
 
-    final details = NotificationDetails(
+    const details = NotificationDetails(
       android: androidDetails,
       iOS: iosDetails,
     );
 
-    await _notifications.zonedSchedule(
-      id,
-      title,
-      body,
-      _convertToTZDateTime(scheduledDate),
-      details,
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
-      payload: payload,
-    );
+    try {
+      await _notifications.zonedSchedule(
+        id,
+        title,
+        body,
+        _convertToTZDateTime(scheduledDate),
+        details,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+        payload: payload,
+        matchDateTimeComponents: null,
+      );
+    } catch (e) {
+      print('Greška pri zakazivanju notifikacije $id: $e');
+      // Pokušaj sa jednostavnijim pristupom
+      try {
+        await _notifications.zonedSchedule(
+          id,
+          title,
+          body,
+          _convertToTZDateTime(scheduledDate),
+          details,
+          androidScheduleMode: AndroidScheduleMode.exact,
+          uiLocalNotificationDateInterpretation:
+              UILocalNotificationDateInterpretation.absoluteTime,
+          payload: payload,
+        );
+      } catch (e2) {
+        print('Greška pri drugom pokušaju zakazivanja notifikacije $id: $e2');
+      }
+    }
   }
 
   static tz.TZDateTime _convertToTZDateTime(DateTime dateTime) {
-    final location = tz.local;
-    return tz.TZDateTime(
-      location,
-      dateTime.year,
-      dateTime.month,
-      dateTime.day,
-      dateTime.hour,
-      dateTime.minute,
-    );
+    try {
+      final location = tz.getLocation('Europe/Sarajevo');
+      return tz.TZDateTime(
+        location,
+        dateTime.year,
+        dateTime.month,
+        dateTime.day,
+        dateTime.hour,
+        dateTime.minute,
+      );
+    } catch (e) {
+      print('Greška pri konverziji timezone: $e');
+      // Fallback na UTC ako ne uspe
+      return tz.TZDateTime.utc(
+        dateTime.year,
+        dateTime.month,
+        dateTime.day,
+        dateTime.hour,
+        dateTime.minute,
+      );
+    }
   }
 
   static Future<void> showImmediateNotification(models.Message message) async {
