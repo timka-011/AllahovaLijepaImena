@@ -39,12 +39,12 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _testNotification() async {
     if (_messages.isEmpty) return;
     
-    final message = _messages[_currentDayIndex];
-    await NotificationService.showImmediateNotification(message);
+    // Testiramo native notifikaciju
+    await NotificationService.testNativeNotification();
     
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Testna notifikacija poslata!')),
+        const SnackBar(content: Text('Native testna notifikacija poslata!')),
       );
     }
   }
@@ -66,6 +66,11 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: const Text('Lijepa Allahova Imena'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.notifications_active),
+            onPressed: _testNotification,
+            tooltip: 'Testiraj Notifikaciju',
+          ),
           IconButton(
             icon: const Icon(Icons.settings),
             onPressed: () {

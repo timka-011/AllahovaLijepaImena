@@ -4,9 +4,8 @@ import 'package:permission_handler/permission_handler.dart';
 import '../models/message.dart' as models;
 import 'csv_service.dart';
 import 'dart:io' show Platform;
-import 'package:timezone/timezone.dart' as tz;
-import 'package:timezone/data/latest.dart' as tz;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../screens/message_detail_screen.dart';
 
 class NotificationService {
@@ -16,14 +15,11 @@ class NotificationService {
   static const String _keyStartDate = 'notification_start_date';
   static const String _keyCurrentDay = 'current_day_index';
   static GlobalKey<NavigatorState>? _navigatorKey;
+  
+  static const platform = MethodChannel('com.example.lijep_allahov_imena/alarm');
 
   static Future<void> initialize(GlobalKey<NavigatorState> navigatorKey) async {
     _navigatorKey = navigatorKey;
-    
-    // Inicijalizuj timezone
-    tz.initializeTimeZones();
-    // Postavi lokaciju na UTC+1 (Bosna i Hercegovina)
-    tz.setLocalLocation(tz.getLocation('Europe/Sarajevo'));
     
     // Android postavke
     const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -70,21 +66,20 @@ class NotificationService {
   static void _onNotificationTapped(NotificationResponse response) async {
     print('Notifikacija pritisnuta: ${response.payload}');
     
-    if (response.payload != null && _navigatorKey?.currentContext != null) {
-      final messageId = int.tryParse(response.payload!);
-      if (messageId != null) {
-        final messages = await CsvService.loadMessages();
-        final message = messages.firstWhere(
-          (m) => m.id == messageId,
-          orElse: () => messages.first,
-        );
-        
-        _navigatorKey!.currentState?.push(
-          MaterialPageRoute(
-            builder: (context) => MessageDetailScreen(message: message),
-          ),
-        );
-      }
+    if (_navigatorKey?.currentContext != null) {
+      final messages = await CsvService.loadMessages();
+      if (messages.isEmpty) return;
+      
+      // Izračunaj trenutni dan na osnovu startnog datuma
+      final dayIndex = await getCurrentDayIndex();
+      final messageIndex = dayIndex % messages.length;
+      final message = messages[messageIndex];
+      
+      _navigatorKey!.currentState?.push(
+        MaterialPageRoute(
+          builder: (context) => MessageDetailScreen(message: message),
+        ),
+      );
     }
   }
 
@@ -109,48 +104,55 @@ class NotificationService {
     final minute = prefs.getInt('notification_minute') ?? 0;
 
     // Otkaži sve prethodne notifikacije
-    await _notifications.cancelAll();
-
-    // Zakazi notifikacije za narednih 30 dana
-    final now = DateTime.now();
-    
-    // Odredite prvi datum notifikacije
-    DateTime firstNotificationDate = DateTime(
-      now.year,
-      now.month,
-      now.day,
-      hour,
-      minute,
-    );
-    
-    // Ako je već prošlo odabrano vrijeme, počni od sutra
-    if (now.hour > hour || (now.hour == hour && now.minute >= minute)) {
-      firstNotificationDate = firstNotificationDate.add(const Duration(days: 1));
-    }
-    
-    for (int i = 0; i < messages.length; i++) {
-      final message = messages[i];
-      final scheduledDate = firstNotificationDate.add(Duration(days: i));
-
-      await _scheduleNotification(
-        id: message.id,
-        title: 'Allahovo ime - Dan ${i + 1}',
-        body: message.message,
-        scheduledDate: scheduledDate,
-        payload: message.id.toString(),
-      );
+    try {
+      if (Platform.isAndroid) {
+        await platform.invokeMethod('cancelAlarm');
+      }
+      await _notifications.cancelAll();
+    } catch (e) {
+      print('Greška pri otkazivanju notifikacija: $e');
     }
 
-    print('Zakazano ${messages.length} notifikacija');
+    // Zakaži dnevni alarm preko platform channela
+    try {
+      if (Platform.isAndroid) {
+        await platform.invokeMethod('scheduleDailyAlarm', {
+          'hour': hour,
+          'minute': minute,
+        });
+        print('Zakazan dnevni alarm za $hour:$minute');
+      } else {
+        // Za iOS koristi stari pristup
+        await _scheduleDailyRepeatingNotification(hour, minute);
+      }
+    } catch (e) {
+      print('Greška pri zakazivanju alarma: $e');
+      // Fallback na stari pristup
+      await _scheduleDailyRepeatingNotification(hour, minute);
+    }
+
+    // Sačuvaj poruke u SharedPreferences za kasniju upotrebu
+    await _saveMessagesToPrefs(messages);
+
+    print('Zakazana dnevna notifikacija');
   }
 
-  static Future<void> _scheduleNotification({
-    required int id,
-    required String title,
-    required String body,
-    required DateTime scheduledDate,
-    String? payload,
-  }) async {
+  static Future<void> _saveMessagesToPrefs(List<models.Message> messages) async {
+    final prefs = await SharedPreferences.getInstance();
+    // Sačuvaj broj poruka
+    await prefs.setInt('total_messages', messages.length);
+  }
+
+  static Future<void> _scheduleDailyRepeatingNotification(int hour, int minute) async {
+    // Kreiraj notifikaciju koja će se prikazati svaki dan
+    final now = DateTime.now();
+    var scheduledDate = DateTime(now.year, now.month, now.day, hour, minute);
+    
+    // Ako je već prošlo vrijeme, zakaži za sutra
+    if (scheduledDate.isBefore(now)) {
+      scheduledDate = scheduledDate.add(const Duration(days: 1));
+    }
+
     const androidDetails = AndroidNotificationDetails(
       'daily_messages',
       'Dnevne Poruke',
@@ -171,62 +173,16 @@ class NotificationService {
       iOS: iosDetails,
     );
 
-    try {
-      await _notifications.zonedSchedule(
-        id,
-        title,
-        body,
-        _convertToTZDateTime(scheduledDate),
-        details,
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        uiLocalNotificationDateInterpretation:
-            UILocalNotificationDateInterpretation.absoluteTime,
-        payload: payload,
-        matchDateTimeComponents: null,
-      );
-    } catch (e) {
-      print('Greška pri zakazivanju notifikacije $id: $e');
-      // Pokušaj sa jednostavnijim pristupom
-      try {
-        await _notifications.zonedSchedule(
-          id,
-          title,
-          body,
-          _convertToTZDateTime(scheduledDate),
-          details,
-          androidScheduleMode: AndroidScheduleMode.exact,
-          uiLocalNotificationDateInterpretation:
-              UILocalNotificationDateInterpretation.absoluteTime,
-          payload: payload,
-        );
-      } catch (e2) {
-        print('Greška pri drugom pokušaju zakazivanja notifikacije $id: $e2');
-      }
-    }
-  }
-
-  static tz.TZDateTime _convertToTZDateTime(DateTime dateTime) {
-    try {
-      final location = tz.getLocation('Europe/Sarajevo');
-      return tz.TZDateTime(
-        location,
-        dateTime.year,
-        dateTime.month,
-        dateTime.day,
-        dateTime.hour,
-        dateTime.minute,
-      );
-    } catch (e) {
-      print('Greška pri konverziji timezone: $e');
-      // Fallback na UTC ako ne uspe
-      return tz.TZDateTime.utc(
-        dateTime.year,
-        dateTime.month,
-        dateTime.day,
-        dateTime.hour,
-        dateTime.minute,
-      );
-    }
+    // Koristimo periodicallyShow umjesto zonedSchedule
+    await _notifications.periodicallyShow(
+      0, // Fixed ID za dnevnu notifikaciju
+      'Allahovo ime',
+      'Kliknite da vidite današnju poruku',
+      RepeatInterval.daily,
+      details,
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      payload: '0',
+    );
   }
 
   static Future<void> showImmediateNotification(models.Message message) async {
@@ -258,6 +214,17 @@ class NotificationService {
     );
   }
 
+  static Future<void> testNativeNotification() async {
+    try {
+      if (Platform.isAndroid) {
+        await platform.invokeMethod('testNotification');
+        print('Native test notifikacija pozvana');
+      }
+    } catch (e) {
+      print('Greška pri testiranju native notifikacije: $e');
+    }
+  }
+
   static Future<int> getCurrentDayIndex() async {
     final prefs = await SharedPreferences.getInstance();
     final startDateStr = prefs.getString(_keyStartDate);
@@ -277,7 +244,14 @@ class NotificationService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_keyStartDate);
     await prefs.remove(_keyCurrentDay);
-    await _notifications.cancelAll();
+    try {
+      if (Platform.isAndroid) {
+        await platform.invokeMethod('cancelAlarm');
+      }
+      await _notifications.cancelAll();
+    } catch (e) {
+      print('Greška pri otkazivanju notifikacija: $e');
+    }
     await scheduleDailyNotifications();
   }
 }

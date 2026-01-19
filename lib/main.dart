@@ -1,12 +1,31 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'screens/home_screen.dart';
+import 'screens/message_detail_screen.dart';
 import 'services/notification_service.dart';
+import 'services/csv_service.dart';
 
 // Globalni navigacioni ključ
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Postavi listener za navigaciju iz native koda
+  const navChannel = MethodChannel('com.example.lijep_allahov_imena/navigation');
+  navChannel.setMethodCallHandler((call) async {
+    if (call.method == 'openMessageDetail') {
+      final dayIndex = call.arguments as int;
+      final messages = await CsvService.loadMessages();
+      if (dayIndex >= 0 && dayIndex < messages.length) {
+        navigatorKey.currentState?.push(
+          MaterialPageRoute(
+            builder: (context) => MessageDetailScreen(message: messages[dayIndex]),
+          ),
+        );
+      }
+    }
+  });
   
   runApp(const MyApp());
 }
