@@ -13,6 +13,7 @@ class MessageDetailScreen extends StatefulWidget {
 
 class _MessageDetailScreenState extends State<MessageDetailScreen> {
   String _ayatText = '';
+  String _ayatBosnianText = '';
   bool _isLoading = true;
 
   @override
@@ -23,8 +24,10 @@ class _MessageDetailScreenState extends State<MessageDetailScreen> {
 
   Future<void> _loadAyat() async {
     final ayat = await QuranService.getAyat(widget.message.sura, widget.message.ajet);
+    final ayatBosnian = await QuranService.getAyatBosnian(widget.message.sura, widget.message.ajet);
     setState(() {
       _ayatText = ayat;
+      _ayatBosnianText = ayatBosnian;
       _isLoading = false;
     });
   }
@@ -144,6 +147,18 @@ class _MessageDetailScreenState extends State<MessageDetailScreen> {
                             textAlign: TextAlign.right,
                             textDirection: TextDirection.rtl,
                           ),
+                          if (_ayatBosnianText.isNotEmpty) ...[
+                            const SizedBox(height: 16),
+                            Text(
+                              _ayatBosnianText,
+                              style: TextStyle(
+                                fontSize: 16,
+                                height: 1.7,
+                                color: Colors.grey.shade800,
+                              ),
+                              textAlign: TextAlign.left,
+                            ),
+                          ],
                         ],
                       ),
                     ),

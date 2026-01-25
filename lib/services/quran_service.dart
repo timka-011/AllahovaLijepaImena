@@ -2,6 +2,7 @@ import 'package:flutter/services.dart';
 
 class QuranService {
   static Map<String, String>? _quranCache;
+  static Map<String, String>? _bosnianCache;
 
   static Future<void> _loadQuran() async {
     if (_quranCache != null) return;
@@ -22,8 +23,32 @@ class QuranService {
     }
   }
 
+  static Future<void> _loadBosnian() async {
+    if (_bosnianCache != null) return;
+
+    _bosnianCache = {};
+    final rawData = await rootBundle.loadString('assets/bs.korkut.txt');
+    final lines = rawData.split('\n');
+
+    for (var line in lines) {
+      if (line.trim().isEmpty) continue;
+      final parts = line.split('|');
+      if (parts.length >= 3) {
+        final sura = parts[0];
+        final ayet = parts[1];
+        final text = parts[2];
+        _bosnianCache!['$sura:$ayet'] = text;
+      }
+    }
+  }
+
   static Future<String> getAyat(int sura, int ayet) async {
     await _loadQuran();
     return _quranCache!['$sura:$ayet'] ?? '';
+  }
+
+  static Future<String> getAyatBosnian(int sura, int ayet) async {
+    await _loadBosnian();
+    return _bosnianCache!['$sura:$ayet'] ?? '';
   }
 }
